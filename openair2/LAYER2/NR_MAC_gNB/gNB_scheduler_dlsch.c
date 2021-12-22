@@ -1222,6 +1222,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
       // const int lcid = DL_SCH_LCID_DTCH;
       const int lcid = sched_ctrl->lcid_to_schedule;
       int dlsch_total_bytes = 0;
+      int sdus = 0;
       if (sched_ctrl->num_total_bytes > 0) {
         tbs_size_t len = 0;
         while (size > 3) {
@@ -1268,6 +1269,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
           size -= len;
           buf += len;
           dlsch_total_bytes += len;
+          sdus += 1;
         }
         if (len == 0) {
           /* RLC did not have data anymore, mark buffer as unused */
@@ -1294,6 +1296,7 @@ void nr_schedule_ue_spec(module_id_t module_id,
         size -= size;
         buf += size;
         dlsch_total_bytes += size;
+        sdus +=1;
       }
 
       // Add padding header and zero rest out if there is space left
@@ -1310,9 +1313,17 @@ void nr_schedule_ue_spec(module_id_t module_id,
         }
       }
 
-      UE_info->mac_stats[UE_id].dlsch_total_bytes += TBS;
-      UE_info->mac_stats[UE_id].dlsch_current_bytes = TBS;
-      UE_info->mac_stats[UE_id].lc_bytes_tx[lcid] += dlsch_total_bytes;
+//      UE_info->mac_stats[UE_id].dlsch_total_bytes += TBS;
+//      UE_info->mac_stats[UE_id].dlsch_current_bytes = TBS;
+//      UE_info->mac_stats[UE_id].lc_bytes_tx[lcid] += dlsch_total_bytes;
+
+      NR_mac_stats_t *mac_stats = &UE_info->mac_stats[UE_id];
+      mac_stats->dlsch_total_bytes += TBS;
+      mac_stats->dlsch_current_bytes = TBS;
+      mac_stats->lc_bytes_tx[lcid] += dlsch_total_bytes;
+      mac_stats->dlsch_total_rbs += sched_pdsch->rbSize;
+      mac_stats->dlsch_num_mac_sdu += sdus;
+
 
       /* save retransmission information */
       harq->sched_pdsch = *sched_pdsch;

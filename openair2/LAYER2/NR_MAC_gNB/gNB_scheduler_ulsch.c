@@ -197,6 +197,7 @@ int nr_process_mac_pdu(module_id_t module_idP,
     uint8_t rx_lcid;
     uint8_t done = 0;
     uint16_t mac_ce_len;
+    int sdus = 0;
     uint16_t mac_subheader_len;
     uint16_t mac_sdu_len;
 
@@ -485,7 +486,7 @@ int nr_process_mac_pdu(module_id_t module_idP,
                            mac_sdu_len,
                            1,
                            NULL);
-
+          sdus += 1;
           /* Updated estimated buffer when receiving data */
           if (sched_ctrl->estimated_ul_buffer >= mac_sdu_len)
             sched_ctrl->estimated_ul_buffer -= mac_sdu_len;
@@ -523,6 +524,10 @@ int nr_process_mac_pdu(module_id_t module_idP,
           return 0;
         }
     }
+
+  NR_mac_stats_t *mac_stats = &UE_info->mac_stats[UE_id];
+  mac_stats->ulsch_num_mac_sdu += sdus;
+
   return 0;
 }
 
@@ -1491,9 +1496,13 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot)
     NR_pusch_semi_static_t *ps = &sched_ctrl->pusch_semi_static;
 
     /* Statistics */
-    UE_info->mac_stats[UE_id].ulsch_rounds[cur_harq->round]++;
+//    UE_info->mac_stats[UE_id].ulsch_rounds[cur_harq->round]++;
+    NR_mac_stats_t* mac_stats = &UE_info->mac_stats[UE_id];
+    mac_stats->ulsch_rounds[cur_harq->round]++;
     if (cur_harq->round == 0) {
-      UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += sched_pusch->tb_size;
+//      UE_info->mac_stats[UE_id].ulsch_total_bytes_scheduled += sched_pusch->tb_size;
+     mac_stats->ulsch_total_bytes_scheduled += sched_pusch->tb_size; 
+
       /* Save information on MCS, TBS etc for the current initial transmission
        * so we have access to it when retransmitting */
       cur_harq->sched_pusch = *sched_pusch;
@@ -1501,6 +1510,8 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot)
        * retransmissions */
       cur_harq->sched_pusch.time_domain_allocation = ps->time_domain_allocation;
       sched_ctrl->sched_ul_bytes += sched_pusch->tb_size;
+      mac_stats->ulsch_total_rbs += sched_pusch->rbSize;
+
     } else {
       LOG_D(NR_MAC,
             "%d.%2d UL retransmission RNTI %04x sched %d.%2d HARQ PID %d round %d NDI %d\n",
@@ -1512,6 +1523,7 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot)
             harq_id,
             cur_harq->round,
             cur_harq->ndi);
+      mac_stats->ulsch_total_rbs_retx += sched_pusch->rbSize;
     }
     UE_info->mac_stats[UE_id].ulsch_current_bytes = sched_pusch->tb_size;
     sched_ctrl->last_ul_frame = sched_pusch->frame;
