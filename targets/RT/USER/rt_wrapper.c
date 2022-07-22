@@ -346,13 +346,13 @@ void thread_top_init(char *thread_name,
   s = pthread_setschedparam(pthread_self(), policy, &sparam);
   if (s != 0) {
     perror("pthread_setschedparam : ");
-    exit_fun("Error setting thread priority");
+    //exit_fun("Error setting thread priority");
   }
   
   s = pthread_getschedparam(pthread_self(), &policy, &sparam);
   if (s != 0) {
     perror("pthread_getschedparam : ");
-    exit_fun("Error getting thread priority");
+    //exit_fun("Error getting thread priority");
   }
 
   pthread_setname_np(pthread_self(), thread_name);

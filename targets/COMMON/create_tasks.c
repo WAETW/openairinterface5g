@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: 2020-present Open Networking Foundation <info@opennetworking.org>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -36,6 +42,9 @@
     #include "lteRALenb.h"
   #endif
   #include "RRC/LTE/rrc_defs.h"
+#ifdef ENABLE_RIC_AGENT
+  #include "ric_agent.h"
+#endif
 #endif
 # include "f1ap_cu_task.h"
 # include "f1ap_du_task.h"
@@ -97,6 +106,21 @@ int create_tasks(uint32_t enb_nb) {
     rc = itti_create_task(TASK_MAC_ENB, mac_enb_task, NULL);
     AssertFatal(rc >= 0, "Create task for MAC eNB failed\n");
   }
+
+#ifdef ENABLE_RIC_AGENT
+  if (NODE_IS_CU(type)) {
+    rc = itti_create_task(TASK_RIC_AGENT, ric_agent_task, NULL);
+    AssertFatal(rc >= 0, "Create task for RIC_AGENT failed\n");
+  }
+#endif
+
+#ifdef ENABLE_RAN_SLICING
+  if (NODE_IS_DU(type)) {
+    LOG_I(MAC,"Creating DU RIC Agent Task\n");
+    rc = itti_create_task(TASK_RIC_AGENT_DU, du_ric_agent_task, NULL);
+    AssertFatal(rc >= 0, "Create task for RIC_AGENT failed\n");
+  }
+#endif
 
   return 0;
 }

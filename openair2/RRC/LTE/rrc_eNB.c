@@ -96,6 +96,10 @@
 
 #include "SIMULATION/TOOLS/sim.h" // for taus
 
+#ifdef ENABLE_RAN_SLICING
+#include "ric_agent.h"
+#endif
+
 #define ASN_MAX_ENCODE_SIZE 4096
 #define NUMBEROF_DRBS_TOBE_ADDED 1
 static int encode_CG_ConfigInfo(char *buffer,int buffer_size,rrc_eNB_ue_context_t *const ue_context_pP,int *enc_size);
@@ -124,6 +128,14 @@ extern struct rrc_eNB_ue_context_s *get_first_ue_context(eNB_RRC_INST *rrc_insta
 pthread_mutex_t      rrc_release_freelist;
 RRC_release_list_t   rrc_release_info;
 pthread_mutex_t      lock_ue_freelist;
+
+#ifdef ENABLE_RIC_AGENT
+eNB_RRC_KPI_STATS    rrc_kpi_stats;
+#endif
+
+#ifdef ENABLE_RAN_SLICING
+extern uint8_t rsm_emm_event_trigger;
+#endif
 
 void
 openair_rrc_on(
@@ -1209,6 +1221,9 @@ rrc_eNB_process_RRCConnectionSetupComplete(
     T_INT(ctxt_pP->subframe),
     T_INT(ctxt_pP->rnti));
 
+#ifdef ENABLE_RIC_AGENT
+    rrc_kpi_stats.rrc_conn_estab_succ_sum++;
+#endif        
   if (EPC_MODE_ENABLED == 1) {
     // Forward message to S1AP layer
     rrc_eNB_send_S1AP_NAS_FIRST_REQ(ctxt_pP, ue_context_pP, rrcConnectionSetupComplete);
@@ -6521,6 +6536,11 @@ rrc_eNB_process_RRCConnectionReconfigurationComplete(
   rnti_t rnti = ue_context_pP->ue_id_rnti;
   module_id_t module_id = ctxt_pP->module_id;
 
+#ifdef ENABLE_RAN_SLICING
+  eventTrigger CUEventTriggerToRic;
+  ueStatusInd *ueAttachInd;
+#endif
+
   if (NODE_IS_MONOLITHIC(RC.rrc[module_id]->node_type)) {
     int UE_id_mac = find_UE_id(module_id, rnti);
 
@@ -6611,9 +6631,12 @@ rrc_eNB_process_RRCConnectionReconfigurationComplete(
   }
 
   /* Loop through DRBs and establish if necessary */
-  if (DRB_configList != NULL) {
-    for (int i = 0; i < DRB_configList->list.count; i++) {  // num max DRB (11-3-8)
-      if (DRB_configList->list.array[i]) {
+  if (DRB_configList != NULL) 
+  {
+    for (int i = 0; i < DRB_configList->list.count; i++) // num max DRB (11-3-8)
+    {
+      if (DRB_configList->list.array[i]) 
+      {
         drb_id = (int)DRB_configList->list.array[i]->drb_Identity;
         LOG_I(RRC, "[eNB %d] Frame  %d : Logical Channel UL-DCCH, Received LTE_RRCConnectionReconfigurationComplete from UE rnti %x, reconfiguring DRB %d/LCID %d\n",
               ctxt_pP->module_id,
@@ -6629,6 +6652,36 @@ rrc_eNB_process_RRCConnectionReconfigurationComplete(
               (int)DRB_configList->list.array[i]->drb_Identity,
               (int)*DRB_configList->list.array[i]->logicalChannelIdentity);
 
+#ifdef ENABLE_RAN_SLICING
+	if (rsm_emm_event_trigger == 1)
+    {
+        /* Prepare and Send Attach Event Trigger for each DRB */
+        MessageDef *m = itti_alloc_new_message(TASK_RRC_ENB, CU_EVENT_TRIGGER);
+        CUEventTriggerToRic.eventTriggerType = UE_ATTACH_EVENT_TRIGGER;
+        CUEventTriggerToRic.eventTriggerSize = sizeof(ueStatusInd);
+
+        ueAttachInd = (ueStatusInd *)CUEventTriggerToRic.eventTriggerBuff;
+        ueAttachInd->rnti = ue_context_pP->ue_context.rnti;
+        ueAttachInd->eNB_ue_s1ap_id = ue_context_pP->ue_context.eNB_ue_s1ap_id; 
+        ueAttachInd->mme_ue_s1ap_id = ue_context_pP->ue_context.mme_ue_s1ap_id;
+        ueAttachInd->e_rab_id = ue_context_pP->ue_context.e_rab[i].param.e_rab_id;
+        ueAttachInd->qci = ue_context_pP->ue_context.e_rab[i].param.qos.qci;
+        ueAttachInd->cu_ue_f1ap_id = 0;//f1ap_get_cu_ue_f1ap_id(&f1ap_cu_inst[ctxt_pP->instance],
+                                       //                     ueAttachInd->rnti); These will be populated in e2sm_rsm.c
+        ueAttachInd->du_ue_f1ap_id = 0;//f1ap_get_du_ue_f1ap_id(&f1ap_cu_inst[ctxt_pP->instance],
+                                       //                     ueAttachInd->rnti);
+
+        CU_EVENT_TRIGGER(m).eventTriggerType = CUEventTriggerToRic.eventTriggerType;
+        CU_EVENT_TRIGGER(m).eventTriggerSize = CUEventTriggerToRic.eventTriggerSize;
+        
+        memcpy(CU_EVENT_TRIGGER(m).eventTriggerBuff, 
+               CUEventTriggerToRic.eventTriggerBuff, 
+               CUEventTriggerToRic.eventTriggerSize);
+
+        itti_send_msg_to_task(TASK_RIC_AGENT, module_id, m);
+	}
+#endif
+    
         if (ue_context_pP->ue_context.DRB_active[drb_id] == 0) {
           ue_context_pP->ue_context.DRB_active[drb_id] = 1;
           LOG_D(RRC, "[eNB %d] Frame %d: Establish RLC UM Bidirectional, DRB %d Active\n",
@@ -7170,6 +7223,9 @@ rrc_eNB_decode_ccch(
               PROTOCOL_RRC_CTXT_UE_ARGS(ctxt_pP));
         rrcConnectionReestablishmentRequest =
           &ul_ccch_msg->message.choice.c1.choice.rrcConnectionReestablishmentRequest.criticalExtensions.choice.rrcConnectionReestablishmentRequest_r8;
+#ifdef ENABLE_RIC_AGENT
+        rrc_kpi_stats.rrc_conn_reestab_att_sum++;
+#endif        
         LOG_I(RRC,
               PROTOCOL_RRC_CTXT_UE_FMT" LTE_RRCConnectionReestablishmentRequest cause %s\n",
               PROTOCOL_RRC_CTXT_UE_ARGS(ctxt_pP),
@@ -7217,13 +7273,12 @@ rrc_eNB_decode_ccch(
             LOG_E(RRC,
                   PROTOCOL_RRC_CTXT_UE_FMT" LTE_RRCConnectionReestablishmentRequest without UE context, let's reject the UE\n",
                   PROTOCOL_RRC_CTXT_UE_ARGS(ctxt_pP));
-            rrc_eNB_generate_RRCConnectionReestablishmentReject_unknown_UE(ctxt_pP,
-                CC_id);
+            //rrc_eNB_generate_RRCConnectionReestablishmentReject(ctxt_pP, ue_context_p, CC_id);
             break;
           }
 
-          int UE_id = find_UE_id(ctxt_pP->module_id, c_rnti);
-
+          //int UE_id = find_UE_id(ctxt_pP->module_id, c_rnti);
+          int UE_id = -1; //find_UE_id shouldn't be invoked from CU
           if(UE_id == -1) {
             LOG_E(RRC,
                   PROTOCOL_RRC_CTXT_UE_FMT" LTE_RRCConnectionReestablishmentRequest without UE_id(MAC) rnti %x, let's reject the UE\n",
@@ -7411,6 +7466,9 @@ rrc_eNB_decode_ccch(
                          RC.rrc[ctxt_pP->module_id],
                          ctxt_pP->rnti);
 
+#ifdef ENABLE_RIC_AGENT
+        rrc_kpi_stats.rrc_conn_estab_att_sum++;
+#endif        
         if (ue_context_p != NULL) {
           // erase content
           rrc_eNB_free_mem_UE_context(ctxt_pP, ue_context_p);
@@ -8690,6 +8748,13 @@ void rrc_enb_init(void) {
   pthread_mutex_init(&lock_ue_freelist, NULL);
   pthread_mutex_init(&rrc_release_freelist, NULL);
   memset(&rrc_release_info,0,sizeof(RRC_release_list_t));
+#ifdef ENABLE_RIC_AGENT
+  rrc_kpi_stats.rrc_conn_estab_att_sum = 0;
+  rrc_kpi_stats.rrc_conn_estab_succ_sum = 0;
+  rrc_kpi_stats.rrc_conn_reestab_att_sum = 0;
+  rrc_kpi_stats.rrc_conn_mean = 0;
+  rrc_kpi_stats.rrc_conn_max = 0;
+#endif        
 }
 
 //-----------------------------------------------------------------------------
@@ -8792,10 +8857,11 @@ void process_unsuccessful_rlc_sdu_indication(int instance, int rnti) {
       rrc_release_info.RRC_release_ctrl[release_num].rnti = rnti;
       rrc_release_info.RRC_release_ctrl[release_num].rrc_eNB_mui = -1;     /* not defined */
       rrc_release_info.num_UEs++;
-      LOG_D(RRC, "radio link failure detected: index %d rnti %x flag %d \n",
+      LOG_I(RRC, "RLC-MAX-RETX [RLF detected]: index %d rnti %x flag %d RRC Rel UEs %d\n",
             release_num,
             rnti,
-            rrc_release_info.RRC_release_ctrl[release_num].flag);
+            rrc_release_info.RRC_release_ctrl[release_num].flag,
+        rrc_release_info.num_UEs);
       break;
     }
   }
@@ -8844,7 +8910,8 @@ int add_ue_to_remove(struct rrc_eNB_ue_context_s **ue_to_be_removed,
 }
 
 //-----------------------------------------------------------------------------
-void rrc_subframe_process(protocol_ctxt_t *const ctxt_pP, const int CC_id) {
+void rrc_subframe_process(protocol_ctxt_t *const ctxt_pP, const int CC_id) 
+{
   int32_t current_timestamp_ms = 0;
   int32_t ref_timestamp_ms = 0;
   struct timeval ts;
@@ -8953,9 +9020,35 @@ void rrc_subframe_process(protocol_ctxt_t *const ctxt_pP, const int CC_id) {
         }
 
         if ((rrc_release_info.RRC_release_ctrl[release_num].flag > 2) &&
-            (rrc_release_info.RRC_release_ctrl[release_num].rnti == ue_context_p->ue_context.rnti)) {
-          ue_context_p->ue_context.ue_release_timer_rrc = 1;
-          ue_context_p->ue_context.ue_release_timer_thres_rrc = 100;
+            (rrc_release_info.RRC_release_ctrl[release_num].rnti == ue_context_p->ue_context.rnti)) 
+        {
+
+          if (ue_context_p->ue_context.ue_release_timer_rrc == 0) /*setting ue_release_timer_rrc for the first time only */
+          {
+            ue_context_p->ue_context.ue_release_timer_rrc = 1;
+            ue_context_p->ue_context.ue_release_timer_thres_rrc = 100;
+
+            if ( (NODE_IS_DU(RC.rrc[ctxt_pP->module_id]->node_type)) &&
+                   (rrc_release_info.RRC_release_ctrl[release_num].rrc_eNB_mui == -1) )
+              {
+                /* This will trigger F1AP context cleanup procedure at DU & CU, only in case of RLC-MAX-RETX */
+                MessageDef *m = itti_alloc_new_message(TASK_MAC_ENB, F1AP_UE_CONTEXT_RELEASE_REQ);
+                F1AP_UE_CONTEXT_RELEASE_REQ(m).rnti = rrc_release_info.RRC_release_ctrl[release_num].rnti;
+                F1AP_UE_CONTEXT_RELEASE_REQ(m).cause = F1AP_CAUSE_RADIO_NETWORK;
+                F1AP_UE_CONTEXT_RELEASE_REQ(m).cause_value = 1; // 1 = F1AP_CauseRadioNetwork_rl_failure
+                F1AP_UE_CONTEXT_RELEASE_REQ(m).rrc_container = NULL;
+                F1AP_UE_CONTEXT_RELEASE_REQ(m).rrc_container_length = 0;
+                itti_send_msg_to_task(TASK_DU_F1, ctxt_pP->module_id, m);
+                
+                LOG_I(RRC, "[RLC-MAX-RETX]*** rnti %x: F1AP_UE_CONTEXT_RELEASE_REQ ==> RLF ********** \n",
+                              rrc_release_info.RRC_release_ctrl[release_num].rnti);
+              }
+          }
+                
+          LOG_D(RRC, "[%s,%u] Rel_num %d RNTI %x,%x:Flag %d ue_release_timer_rrc %d\n",
+            __func__,__LINE__, release_num, rrc_release_info.RRC_release_ctrl[release_num].rnti,
+            ue_context_p->ue_context.rnti, rrc_release_info.RRC_release_ctrl[release_num].flag,
+            ue_context_p->ue_context.ue_release_timer_rrc);
 
           if (EPC_MODE_ENABLED && !NODE_IS_DU(RC.rrc[ctxt_pP->module_id]->node_type)) {
             if (rrc_release_info.RRC_release_ctrl[release_num].flag == 4) { // if timer_s1 == 0

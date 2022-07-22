@@ -164,7 +164,7 @@ mac_rrc_data_req(
                                      (void *)mib,
                                      carrier->MIB,
                                      24);
-    LOG_D(RRC,"Encoded MIB for frame %d (%p), bits %lu\n",sfn,carrier->MIB,enc_rval.encoded);
+    //LOG_D(RRC,"Encoded MIB for frame %d (%p), bits %lu\n",sfn,carrier->MIB,enc_rval.encoded);
     buffer_pP[0]=carrier->MIB[0];
     buffer_pP[1]=carrier->MIB[1];
     buffer_pP[2]=carrier->MIB[2];
@@ -382,7 +382,7 @@ mac_eNB_get_rrc_status(
   }
 }
 
-void mac_eNB_rrc_ul_failure(const module_id_t Mod_instP,
+int mac_eNB_rrc_ul_failure(const module_id_t Mod_instP,
                             const int CC_idP,
                             const frame_t frameP,
                             const sub_frame_t subframeP,
@@ -391,6 +391,7 @@ void mac_eNB_rrc_ul_failure(const module_id_t Mod_instP,
   ue_context_p = rrc_eNB_get_ue_context(
                    RC.rrc[Mod_instP],
                    rntiP);
+  int ret = 0;
 
   if (ue_context_p != NULL) {
     LOG_I(RRC,"Frame %d, Subframe %d: UE %x UL failure, activating timer\n",frameP,subframeP,rntiP);
@@ -399,6 +400,7 @@ void mac_eNB_rrc_ul_failure(const module_id_t Mod_instP,
       ue_context_p->ue_context.ul_failure_timer=1;
   } else {
     LOG_W(RRC,"Frame %d, Subframe %d: UL failure: UE %x unknown \n",frameP,subframeP,rntiP);
+    ret = -1;
   }
 
   if (flexran_agent_get_rrc_xface(Mod_instP)) {
@@ -406,6 +408,7 @@ void mac_eNB_rrc_ul_failure(const module_id_t Mod_instP,
         rntiP, PROTOCOL__FLEX_UE_STATE_CHANGE_TYPE__FLUESC_DEACTIVATED);
   }
 
+  return ret;
   //rrc_mac_remove_ue(Mod_instP,rntiP);
 }
 

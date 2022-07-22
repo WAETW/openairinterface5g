@@ -89,7 +89,7 @@ void mac_rlc_data_ind     (
 
   switch (channel_id) {
   case 1 ... 2: rb = ue->srb[channel_id - 1]; break;
-  case 3 ... 7: rb = ue->drb[channel_id - 3]; break;
+  case 3 ... 8: rb = ue->drb[channel_id - 3]; break;
   default:      rb = NULL;                    break;
   }
 
@@ -282,6 +282,7 @@ rlc_op_status_t rlc_data_req     (const protocol_ctxt_t *const ctxt_pP,
   int rnti = ctxt_pP->rnti;
   rlc_ue_t *ue;
   rlc_entity_t *rb;
+  rlc_op_status_t ret;
 
   if (MBMS_flagP == MBMS_FLAG_YES)
     rnti = 0xfffd;
@@ -315,16 +316,20 @@ rlc_op_status_t rlc_data_req     (const protocol_ctxt_t *const ctxt_pP,
   if (rb != NULL) {
     rb->set_time(rb, rlc_current_time);
     rb->recv_sdu(rb, (char *)sdu_pP->data, sdu_sizeP, muiP);
+    ret = RLC_OP_STATUS_OK;
   } else {
     LOG_E(RLC, "%s:%d:%s: fatal: SDU sent to unknown RB\n", __FILE__, __LINE__, __FUNCTION__);
-    exit(1);
+    rlc_manager_remove_ue(rlc_ue_manager, rnti);
+    ret = RLC_OP_STATUS_BAD_PARAMETER; 
+    //exit(1);
   }
 
   rlc_manager_unlock(rlc_ue_manager);
 
   free_mem_block(sdu_pP, __func__);
 
-  return RLC_OP_STATUS_OK;
+  //return RLC_OP_STATUS_OK;
+  return ret;
 }
 
 int rlc_module_init(int enb_flag)

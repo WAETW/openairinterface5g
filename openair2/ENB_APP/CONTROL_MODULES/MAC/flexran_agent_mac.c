@@ -37,8 +37,9 @@
 #include "LAYER2/MAC/mac_proto.h"
 
 #include "liblfds700.h"
-
+#include <stdatomic.h>
 #include "common/utils/LOG/log.h"
+#include "E2SM_RSM_SliceType.h"
 
 #include <dlfcn.h>
 
@@ -736,54 +737,54 @@ int flexran_agent_mac_destroy_stats_reply(Protocol__FlexStatsReply *reply) {
       dl_report = reply->ue_report[i]->dl_cqi_report;
       // Delete all CSI reports
       for (j = 0; j < dl_report->n_csi_report; j++) {
-	//Must free memory based on the type of report
-	switch(dl_report->csi_report[j]->report_case) {
-	case PROTOCOL__FLEX_DL_CSI__REPORT_P10CSI:
-	  free(dl_report->csi_report[j]->p10csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_P11CSI:
-	  free(dl_report->csi_report[j]->p11csi->wb_cqi);
-	  free(dl_report->csi_report[j]->p11csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_P20CSI:
-	  free(dl_report->csi_report[j]->p20csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_P21CSI:
-	  free(dl_report->csi_report[j]->p21csi->wb_cqi);
-	  free(dl_report->csi_report[j]->p21csi->sb_cqi);
-	  free(dl_report->csi_report[j]->p21csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_A12CSI:
-	  free(dl_report->csi_report[j]->a12csi->wb_cqi);
-	  free(dl_report->csi_report[j]->a12csi->sb_pmi);
-	  free(dl_report->csi_report[j]->a12csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_A22CSI:
-	  free(dl_report->csi_report[j]->a22csi->wb_cqi);
-	  free(dl_report->csi_report[j]->a22csi->sb_cqi);
-	  free(dl_report->csi_report[j]->a22csi->sb_list);
-	  free(dl_report->csi_report[j]->a22csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_A20CSI:
-	  free(dl_report->csi_report[j]->a20csi->sb_list);
-	  free(dl_report->csi_report[j]->a20csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_A30CSI:
-	  free(dl_report->csi_report[j]->a30csi->sb_cqi);
-	  free(dl_report->csi_report[j]->a30csi);
-	  break;
-	case PROTOCOL__FLEX_DL_CSI__REPORT_A31CSI:
-	  free(dl_report->csi_report[j]->a31csi->wb_cqi);
-	  for (k = 0; k < dl_report->csi_report[j]->a31csi->n_sb_cqi; k++) {
-	    free(dl_report->csi_report[j]->a31csi->sb_cqi[k]);
-	  }
-	  free(dl_report->csi_report[j]->a31csi->sb_cqi);
-	  break;
-	default:
-	  break;
-	}
+    //Must free memory based on the type of report
+    switch(dl_report->csi_report[j]->report_case) {
+    case PROTOCOL__FLEX_DL_CSI__REPORT_P10CSI:
+      free(dl_report->csi_report[j]->p10csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_P11CSI:
+      free(dl_report->csi_report[j]->p11csi->wb_cqi);
+      free(dl_report->csi_report[j]->p11csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_P20CSI:
+      free(dl_report->csi_report[j]->p20csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_P21CSI:
+      free(dl_report->csi_report[j]->p21csi->wb_cqi);
+      free(dl_report->csi_report[j]->p21csi->sb_cqi);
+      free(dl_report->csi_report[j]->p21csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_A12CSI:
+      free(dl_report->csi_report[j]->a12csi->wb_cqi);
+      free(dl_report->csi_report[j]->a12csi->sb_pmi);
+      free(dl_report->csi_report[j]->a12csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_A22CSI:
+      free(dl_report->csi_report[j]->a22csi->wb_cqi);
+      free(dl_report->csi_report[j]->a22csi->sb_cqi);
+      free(dl_report->csi_report[j]->a22csi->sb_list);
+      free(dl_report->csi_report[j]->a22csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_A20CSI:
+      free(dl_report->csi_report[j]->a20csi->sb_list);
+      free(dl_report->csi_report[j]->a20csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_A30CSI:
+      free(dl_report->csi_report[j]->a30csi->sb_cqi);
+      free(dl_report->csi_report[j]->a30csi);
+      break;
+    case PROTOCOL__FLEX_DL_CSI__REPORT_A31CSI:
+      free(dl_report->csi_report[j]->a31csi->wb_cqi);
+      for (k = 0; k < dl_report->csi_report[j]->a31csi->n_sb_cqi; k++) {
+        free(dl_report->csi_report[j]->a31csi->sb_cqi[k]);
+      }
+      free(dl_report->csi_report[j]->a31csi->sb_cqi);
+      break;
+    default:
+      break;
+    }
 
-	free(dl_report->csi_report[j]);
+    free(dl_report->csi_report[j]);
       }
       free(dl_report->csi_report);
       free(dl_report);
@@ -793,7 +794,7 @@ int flexran_agent_mac_destroy_stats_reply(Protocol__FlexStatsReply *reply) {
       paging_report = reply->ue_report[i]->pbr;
       // Delete all paging buffer reports
       for (j = 0; j < paging_report->n_paging_info; j++) {
-	free(paging_report->paging_info[j]);
+    free(paging_report->paging_info[j]);
       }
       free(paging_report->paging_info);
       free(paging_report);
@@ -802,12 +803,12 @@ int flexran_agent_mac_destroy_stats_reply(Protocol__FlexStatsReply *reply) {
     if (reply->ue_report[i]->flags & PROTOCOL__FLEX_UE_STATS_TYPE__FLUST_UL_CQI) {
       ul_report = reply->ue_report[i]->ul_cqi_report;
       for (j = 0; j < ul_report->n_cqi_meas; j++) {
-	free(ul_report->cqi_meas[j]->sinr);
-	free(ul_report->cqi_meas[j]);
+    free(ul_report->cqi_meas[j]->sinr);
+    free(ul_report->cqi_meas[j]);
       }
       free(ul_report->cqi_meas);
       for (j = 0; j < ul_report->n_pucch_dbm; j++) {
-	free(ul_report->pucch_dbm[j]);
+    free(ul_report->pucch_dbm[j]);
       }
       free(ul_report->pucch_dbm);
       free(ul_report);
@@ -947,8 +948,8 @@ int flexran_agent_mac_sf_trigger(mid_t mod_id, const void *params, Protocol__Fle
   for (i = 0; i < MAX_MOBILES_PER_ENB; i++) {
     for (j = 0; j < 8; j++) {
       if (RC.mac && RC.mac[mod_id] && RC.mac[mod_id]->UE_info.eNB_UE_stats[UE_PCCID(mod_id,i)][i].harq_pid == 1) {
-	available_harq[i] = j;
-	break;
+    available_harq[i] = j;
+    break;
       }
     }
   }
@@ -968,10 +969,10 @@ int flexran_agent_mac_sf_trigger(mid_t mod_id, const void *params, Protocol__Fle
     //Fill the status of the current HARQ process for each UE
     for(i = 0; i < sf_trigger_msg->n_dl_info; i++) {
       if (available_harq[i] < 0)
-	continue;
+    continue;
       dl_info[i] = malloc(sizeof(Protocol__FlexDlInfo));
       if(dl_info[i] == NULL)
-	goto error;
+    goto error;
       UE_id = flexran_get_mac_ue_id(mod_id, i);
       protocol__flex_dl_info__init(dl_info[i]);
       dl_info[i]->rnti = flexran_get_mac_ue_crnti(mod_id, UE_id);
@@ -995,7 +996,7 @@ int flexran_agent_mac_sf_trigger(mid_t mod_id, const void *params, Protocol__Fle
       }
       //      LOG_I(FLEXRAN_AGENT, "Sending subframe trigger for frame %d and subframe %d and harq %d (round %d)\n", flexran_get_current_frame(mod_id), (flexran_get_current_subframe(mod_id) + 1) % 10, dl_info[i]->harq_process_id, dl_info[i]->harq_status[0]);
       if(dl_info[i]->harq_status[0] > 0) {
-	//	LOG_I(FLEXRAN_AGENT, "[Frame %d][Subframe %d]Need to make a retransmission for harq %d (round %d)\n", flexran_get_current_frame(mod_id), flexran_get_current_subframe(mod_id), dl_info[i]->harq_process_id, dl_info[i]->harq_status[0]);
+    //  LOG_I(FLEXRAN_AGENT, "[Frame %d][Subframe %d]Need to make a retransmission for harq %d (round %d)\n", flexran_get_current_frame(mod_id), flexran_get_current_subframe(mod_id), dl_info[i]->harq_process_id, dl_info[i]->harq_status[0]);
       }
       /*Fill in the serving cell index for this UE */
       dl_info[i]->serv_cell_index = UE_PCCID(mod_id, UE_id);
@@ -1020,7 +1021,7 @@ int flexran_agent_mac_sf_trigger(mid_t mod_id, const void *params, Protocol__Fle
     for(i = 0; i < sf_trigger_msg->n_ul_info; i++) {
       ul_info[i] = malloc(sizeof(Protocol__FlexUlInfo));
       if(ul_info[i] == NULL)
-	goto error;
+    goto error;
       protocol__flex_ul_info__init(ul_info[i]);
 
       UE_id = flexran_get_mac_ue_id(mod_id, i);
@@ -1037,14 +1038,14 @@ int flexran_agent_mac_sf_trigger(mid_t mod_id, const void *params, Protocol__Fle
       else{
           /* assume primary carrier */
           ul_info[i]->tpc = flexran_get_tpc(mod_id, UE_id, 0);
-    	  ul_info[i]->has_tpc = 0;
+          ul_info[i]->has_tpc = 0;
       }
       /*TODO: fill in the amount of data in bytes in the MAC SDU received in this subframe for the
-	given logical channel*/
+    given logical channel*/
       ul_info[i]->n_ul_reception = 0;
       ul_info[i]->ul_reception = malloc(sizeof(uint32_t) * ul_info[i]->n_ul_reception);
       for (j = 0; j < ul_info[i]->n_ul_reception; j++) {
-	ul_info[i]->ul_reception[j] = 100;
+    ul_info[i]->ul_reception[j] = 100;
       }
       /*TODO: Fill in the reception status for each UEs data*/
       ul_info[i]->reception_status = PROTOCOL__FLEX_RECEPTION_STATUS__FLRS_OK;
@@ -1174,7 +1175,7 @@ int flexran_agent_mac_destroy_dl_config(Protocol__FlexranMessage *msg) {
     free(msg->dl_mac_config_msg->dl_ue_data[i]->ce_bitmap);
     for (j = 0; j < msg->dl_mac_config_msg->dl_ue_data[i]->n_rlc_pdu; j++) {
       for (k = 0; k <  msg->dl_mac_config_msg->dl_ue_data[i]->rlc_pdu[j]->n_rlc_pdu_tb; k++) {
-	free(msg->dl_mac_config_msg->dl_ue_data[i]->rlc_pdu[j]->rlc_pdu_tb[k]);
+    free(msg->dl_mac_config_msg->dl_ue_data[i]->rlc_pdu[j]->rlc_pdu_tb[k]);
       }
       free(msg->dl_mac_config_msg->dl_ue_data[i]->rlc_pdu[j]->rlc_pdu_tb);
       free(msg->dl_mac_config_msg->dl_ue_data[i]->rlc_pdu[j]);
@@ -1325,12 +1326,12 @@ int flexran_agent_mac_handle_dl_mac_config(mid_t mod_id, const void *params, Pro
   lfds700_misc_prng_init(&ls);
 
   lfds700_ringbuffer_write( &ringbuffer_state[mod_id],
-			    NULL,
-			    (void *) params,
-			    &overwrite_occurred_flag,
-			    NULL,
-			    (void **)&overwritten_dl_config,
-			    &ls);
+                NULL,
+                (void *) params,
+                &overwrite_occurred_flag,
+                NULL,
+                (void **)&overwritten_dl_config,
+                &ls);
 
   if (overwrite_occurred_flag == LFDS700_MISC_FLAG_RAISED) {
     // Delete unmanaged dl_config
@@ -1904,6 +1905,366 @@ void prepare_ue_slice_assoc_update(mid_t mod_id, Protocol__FlexUeConfig **ue_con
     LOG_E(FLEXRAN_AGENT, "lost UE-slice association: too many UE-slice associations at once\n");
   }
 }
+
+#ifdef ENABLE_RAN_SLICING
+extern int                      g_duSocket;
+extern struct sockaddr_in       g_RicAddr;
+extern socklen_t                g_addr_size;
+Protocol__FlexSliceDlUlConfig   dl;
+Protocol__FlexSliceDlUlConfig   ul;
+sliceCreateUpdateReq            sliceReq;
+sliceDeleteReq                  sliceDel;
+ueSliceAssocReq                 ueSliceAssoc;
+Protocol__FlexUeConfig          ueCfg;
+uint8_t                         reqApiId;
+uint8_t                         createUpdateSlice;
+
+void handle_slicing_api_req(apiMsg *p_slicingApi)
+{
+  reqApiId = p_slicingApi->apiID;
+  switch(p_slicingApi->apiID)
+  {
+    /* This is synchronous API,only once RIC receives resp it will send new req. */
+    case SLICE_CREATE_UPDATE_REQ:
+    {
+      createUpdateSlice = 1;
+      sliceReq.sliceId = ((sliceCreateUpdateReq *)p_slicingApi->apiBuff)->sliceId;
+      sliceReq.timeSchd = ((sliceCreateUpdateReq *)p_slicingApi->apiBuff)->timeSchd;
+
+      if (((sliceCreateUpdateReq *)p_slicingApi->apiBuff)->sliceType == E2SM_RSM_SliceType_dlSlice)
+      {
+         LOG_I(MAC,"Received DL SLICE_CREATE_UPDATE_REQ from RIC\n");
+
+         /* Prepare DL Slice Create / Update Buffer */
+         Protocol__FlexSlice *defSlice = NULL;
+
+         dl.has_algorithm = 1;
+         dl.algorithm = PROTOCOL__FLEX_SLICE_ALGORITHM__Static;
+         dl.n_slices = 1; /* Set to 1 during Req, reset during Resp */
+         dl.slices = (Protocol__FlexSlice **)calloc(1, sizeof(Protocol__FlexSlice *));
+         dl.slices[0] = (Protocol__FlexSlice *)calloc(1, sizeof(Protocol__FlexSlice));
+
+         defSlice = dl.slices[0];
+         defSlice->has_id = 1;
+         defSlice->id = sliceReq.sliceId;
+         defSlice->label = (char *)strdup("dedicated");         
+         defSlice->scheduler = (char *)strdup("round_robin_dl"); 
+         defSlice->params_case = PROTOCOL__FLEX_SLICE__PARAMS_STATIC;        
+
+         Protocol__FlexSliceStatic *StaticSliceCfg = (Protocol__FlexSliceStatic *)calloc(1, sizeof(Protocol__FlexSliceStatic));
+         StaticSliceCfg->has_poslow = 1;
+         StaticSliceCfg->poslow = 0;
+         StaticSliceCfg->has_poshigh = 1;
+         //StaticSliceCfg->poshigh = to_rbg(RC.mac[0]->common_channels[0].mib->message.dl_Bandwidth) - 1;
+         StaticSliceCfg->poshigh = 12;
+         /*Default slice should Initially consume 100% of scheduling time */
+         StaticSliceCfg->has_timeschd = 1;
+         StaticSliceCfg->timeschd = sliceReq.timeSchd; 
+
+         defSlice->static_ = StaticSliceCfg;
+
+         printf("--- Dedicated Slice Params ---\n" );
+         printf("dl:-> has_algorithm=%d, algorithm=Static, n_slices=%lu\n",
+                         dl.has_algorithm, dl.n_slices);
+         printf("dl:dedSlice:-> has_id=%d, id=%d, label=%s,\n",
+                         defSlice->has_id, defSlice->id, defSlice->label);
+         printf("dl:dedSlice:-> scheduler=%s, params_case=SLICE_PRAMS_STATIC\n",
+                         defSlice->scheduler);
+         printf("dl:dedSlice:StaticSliceCfg:-> has_poslow=%d, poslow=%d, has_poshigh=%d, poshigh=%d\n",
+                         StaticSliceCfg->has_poslow, StaticSliceCfg->poslow, StaticSliceCfg->has_poshigh, StaticSliceCfg->poshigh);
+         printf("dl:dedSlice:StaticSliceCfg:-> has_timeschd=%d, timeschd=%d\n", 
+                         StaticSliceCfg->has_timeschd, StaticSliceCfg->timeschd);
+         printf("----------------------------------------\n" );
+      }
+      else if (((sliceCreateUpdateReq *)p_slicingApi->apiBuff)->sliceType == E2SM_RSM_SliceType_ulSlice)
+      {
+         LOG_I(MAC,"Received UL SLICE_CREATE_UPDATE_REQ from RIC\n");
+
+         /* Prepare DL Slice Create / Update Buffer */
+         Protocol__FlexSlice *defSlice = NULL;
+
+         ul.has_algorithm = 1;
+         ul.algorithm = PROTOCOL__FLEX_SLICE_ALGORITHM__Static;
+         ul.n_slices = 1; /* Set to 1 during Req, reset during Resp */
+         ul.slices = (Protocol__FlexSlice **)calloc(1, sizeof(Protocol__FlexSlice *));
+         ul.slices[0] = (Protocol__FlexSlice *)calloc(1, sizeof(Protocol__FlexSlice));
+
+         defSlice = ul.slices[0];
+         defSlice->has_id = 1;
+         defSlice->id = sliceReq.sliceId;
+         defSlice->label = (char *)strdup("dedicated");         
+         defSlice->scheduler = (char *)strdup("round_robin_dl"); 
+         defSlice->params_case = PROTOCOL__FLEX_SLICE__PARAMS_STATIC;
+
+         Protocol__FlexSliceStatic *StaticSliceCfg = (Protocol__FlexSliceStatic *)calloc(1, sizeof(Protocol__FlexSliceStatic));
+         StaticSliceCfg->has_poslow = 1;
+         StaticSliceCfg->poslow = 0; 
+         StaticSliceCfg->has_poshigh = 1;
+         //StaticSliceCfg->poshigh = to_rbg(RC.mac[0]->common_channels[0].mib->message.dl_Bandwidth) - 1;
+         StaticSliceCfg->poshigh = to_prb(RC.mac[0]->common_channels[0].ul_Bandwidth) - 1;
+         /*Default slice should Initially consume 100% of scheduling time */
+         StaticSliceCfg->has_timeschd = 1;
+         StaticSliceCfg->timeschd = sliceReq.timeSchd;
+
+         defSlice->static_ = StaticSliceCfg;
+
+         printf("--- Dedicated Slice Params ---\n" );
+         printf("ul:-> has_algorithm=%d, algorithm=Static, n_slices=%lu\n",
+                         ul.has_algorithm, ul.n_slices);
+         printf("ul:dedSlice:-> has_id=%d, id=%d, label=%s,\n",
+                         defSlice->has_id, defSlice->id, defSlice->label);
+         printf("ul:dedSlice:-> scheduler=%s, params_case=SLICE_PRAMS_STATIC\n",
+                         defSlice->scheduler);
+         printf("ul:dedSlice:StaticSliceCfg:-> has_poslow=%d, poslow=%d, has_poshigh=%d, poshigh=%d\n",
+                         StaticSliceCfg->has_poslow, StaticSliceCfg->poslow, StaticSliceCfg->has_poshigh, StaticSliceCfg->poshigh);
+         printf("ul:dedSlice:StaticSliceCfg:-> has_timeschd=%d, timeschd=%d\n",
+                         StaticSliceCfg->has_timeschd, StaticSliceCfg->timeschd);
+         printf("----------------------------------------\n" );
+
+      }
+
+      break;
+    }
+
+    case UE_SLICE_ASSOC_REQ:
+    {
+      ueSliceAssoc.sliceId = ((ueSliceAssocReq *)p_slicingApi->apiBuff)->sliceId;
+      ueSliceAssoc.ulSliceId = ((ueSliceAssocReq *)p_slicingApi->apiBuff)->ulSliceId;
+      ueSliceAssoc.rnti = ((ueSliceAssocReq *)p_slicingApi->apiBuff)->rnti;
+      LOG_I(MAC,"Received UE_SLICE_ASSOC_REQ from RIC\n");
+
+      ueCfg.has_rnti = 1;
+      ueCfg.rnti = ueSliceAssoc.rnti;
+      ueCfg.has_dl_slice_id = 0;
+      ueCfg.has_ul_slice_id = 0;    
+ 
+      if (ueSliceAssoc.sliceId != 0)
+      {
+        ueCfg.has_dl_slice_id = 1;
+        ueCfg.dl_slice_id = ueSliceAssoc.sliceId;
+      }
+
+      if (ueSliceAssoc.ulSliceId != 0)
+      {
+        ueCfg.has_ul_slice_id = 1;
+        ueCfg.ul_slice_id = ueSliceAssoc.ulSliceId;
+      }
+
+      printf("---- UE:SLICE Association Parameters ----\n");
+      printf("UeCfg:has_rnti:%d, rnti:%d\n",
+            ueCfg.has_rnti, ueCfg.rnti);
+      printf("ueCfg.has_dl_slice_id:%d, dl_slice_id:%d has_ul_slice_id:%d ul_slice_id:%d\n",
+            ueCfg.has_dl_slice_id, ueCfg.dl_slice_id, ueCfg.has_ul_slice_id, ueCfg.ul_slice_id); 
+      printf("----------------------------------------\n" );
+      break;
+    }
+
+    case SLICE_DELETE_REQ:
+    {
+      sliceDel.sliceId = ((sliceDeleteReq *)p_slicingApi->apiBuff)->sliceId;
+      sliceDel.sliceType = ((sliceDeleteReq *)p_slicingApi->apiBuff)->sliceType;
+      LOG_I(MAC,"Received SLICE_DELETE_REQ from RIC\n");
+
+      /* Prepare DL Slice Create / Update Buffer */
+      Protocol__FlexSlice *defSlice = NULL;
+
+      createUpdateSlice = 1;
+      
+      if (sliceDel.sliceType == E2SM_RSM_SliceType_dlSlice)
+      {
+        dl.has_algorithm = 1;
+        dl.algorithm = PROTOCOL__FLEX_SLICE_ALGORITHM__Static;
+        dl.n_slices = 1; /* Set to 1 during Req, reset during Resp */
+        dl.slices = (Protocol__FlexSlice **)calloc(1, sizeof(Protocol__FlexSlice *));
+        dl.slices[0] = (Protocol__FlexSlice *)calloc(1, sizeof(Protocol__FlexSlice));
+
+        defSlice = dl.slices[0];
+        defSlice->has_id = 1;
+        defSlice->id = sliceDel.sliceId;
+        defSlice->params_case = PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET;
+
+        printf("--- Dedicated Slice Params for Delete ---\n" );
+        printf("dl:-> has_algorithm=%d, algorithm=Static, n_slices=%lu\n",
+              dl.has_algorithm, dl.n_slices);
+        printf("dl:dedSlice:-> has_id=%d, id=%d, label=%s,\n",
+              defSlice->has_id, defSlice->id, defSlice->label);
+        printf("dl:dedSlice:-> scheduler=%s, params_case=PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET\n",
+              defSlice->scheduler);
+        printf("----------------------------------------\n" );
+      }
+      else if (sliceDel.sliceType == E2SM_RSM_SliceType_ulSlice)
+      {
+        ul.has_algorithm = 1;
+        ul.algorithm = PROTOCOL__FLEX_SLICE_ALGORITHM__Static;
+        ul.n_slices = 1; /* Set to 1 during Req, reset during Resp */
+        ul.slices = (Protocol__FlexSlice **)calloc(1, sizeof(Protocol__FlexSlice *));
+        ul.slices[0] = (Protocol__FlexSlice *)calloc(1, sizeof(Protocol__FlexSlice));
+
+        defSlice = ul.slices[0];
+        defSlice->has_id = 1;
+        defSlice->id = sliceDel.sliceId;
+        defSlice->params_case = PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET;
+
+        printf("--- Dedicated Slice Params for Delete ---\n" );
+        printf("ul:-> has_algorithm=%d, algorithm=Static, n_slices=%lu\n",
+               ul.has_algorithm, ul.n_slices);
+        printf("ul:dedSlice:-> has_id=%d, id=%d, label=%s,\n",
+               defSlice->has_id, defSlice->id, defSlice->label);
+        printf("ul:dedSlice:-> scheduler=%s, params_case=PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET\n",
+               defSlice->scheduler);
+        printf("----------------------------------------\n" );
+      }
+      break;
+    }
+    default:
+    {
+      LOG_E(MAC,"Invalid SLicing API-ID:%d received from RIC\n", p_slicingApi->apiID);
+      break;
+    }
+  }
+  return;
+}
+
+void check_slicing_update(mid_t mod_id)
+{
+  //int bytesSent = 0;
+  //int errnum;
+  apiMsg DURespToRic;
+  int rc = -1;
+
+  if (createUpdateSlice == 1)
+  {
+    if (dl.n_slices == 1)
+    {
+      rc = apply_update_dl_slice_config(mod_id, &dl);
+    }
+    else if (ul.n_slices == 1)
+    {
+      rc = apply_update_ul_slice_config(mod_id, &ul);
+    }
+
+    /*Prepare Slice Update Resp to RIC */
+    if (reqApiId == SLICE_CREATE_UPDATE_REQ)
+    { 
+      sliceCreateUpdateResp *sliceResp;
+      DURespToRic.apiID = SLICE_CREATE_UPDATE_RESP;
+      DURespToRic.apiSize = sizeof(sliceCreateUpdateResp);
+    
+      sliceResp = (sliceCreateUpdateResp *)DURespToRic.apiBuff;
+      sliceResp->sliceId = sliceReq.sliceId;
+      sliceResp->timeSchd = sliceReq.timeSchd;
+      LOG_I(MAC,"==== Preparing Create or Update Dedicated Slice Resp====\n");
+      if (rc == -1)
+      {
+        sliceResp->status = API_RESP_FAILURE;
+        LOG_E(MAC,"+++ Dedicated Slice Creation/Update Failed, Sending failure Resp to RIC +++\n");
+      }
+      else
+      {
+        sliceResp->status = API_RESP_SUCCESS;
+        LOG_I(MAC,"+++ Dedicated Slice Creation/Update Successful, Sending Resp to RIC +++\n");
+      }
+    }
+    else if (reqApiId == SLICE_DELETE_REQ)
+    {
+      sliceDeleteResp *sliceResp;
+      DURespToRic.apiID = SLICE_DELETE_RESP;
+      DURespToRic.apiSize = sizeof(sliceDeleteResp);
+
+      sliceResp = (sliceDeleteResp *)DURespToRic.apiBuff;
+      sliceResp->sliceId = sliceDel.sliceId;
+      LOG_I(MAC,"==== Preparing Delete Dedicated SliceId:%d Resp====\n", sliceDel.sliceId);
+      if (rc == -1)
+      {
+        sliceResp->status = API_RESP_FAILURE;
+        LOG_E(MAC,"+++ Dedicated Slice Deletion Failed, Sending failure Resp to RIC +++\n");
+      }
+      else
+      {  
+        sliceResp->status = API_RESP_SUCCESS;
+        LOG_I(MAC,"+++ Dedicated Slice Deletion Successful, Sending Resp to RIC +++\n");
+      }
+    }
+
+    if (dl.n_slices == 1)
+    {
+      Protocol__FlexSlice *defSlice = dl.slices[0];
+      dl.n_slices = 0;
+   
+      free(defSlice->static_);
+      free(defSlice);
+      free(dl.slices);
+    } 
+    else if (ul.n_slices == 1)
+    {
+      Protocol__FlexSlice *defSlice = ul.slices[0];
+      ul.n_slices = 0;
+
+      free(defSlice->static_);
+      free(defSlice);
+      free(ul.slices);
+    }
+    createUpdateSlice = 0; 
+  }
+  else if (ueCfg.has_rnti == 1)
+  {
+    LOG_I(MAC,"==== Setting UE:Slice Association ====\n");
+    rc = apply_ue_slice_assoc_update(mod_id, &ueCfg);
+
+    /* Prepare UE:Slice Assoc resp to RIC */
+    ueSliceAssocResp *ueSliceResp;
+
+    DURespToRic.apiID = UE_SLICE_ASSOC_RESP;
+    DURespToRic.apiSize = sizeof(ueSliceAssocResp);
+
+    ueSliceResp = (ueSliceAssocResp *)DURespToRic.apiBuff;
+    ueSliceResp->ueId = flexran_get_mac_ue_id_rnti(mod_id, ueCfg.rnti);
+    ueSliceResp->sliceId = ueCfg.dl_slice_id; 
+
+    if (rc == -1)
+    {
+      ueSliceResp->status = API_RESP_FAILURE;
+      LOG_E(MAC,"+++ UE:Slice Assoc Failed, Sending failure Resp to RIC +++\n");
+    }
+    else
+    {
+      ueSliceResp->status = API_RESP_SUCCESS;
+      LOG_I(MAC,"+++ UE:Slice Assoc Success, Sending Resp to RIC +++\n");
+    }
+
+    ueCfg.has_rnti = 0;
+  }
+  else
+  {
+    return;
+  }
+
+  MessageDef *m = itti_alloc_new_message(TASK_MAC_ENB, DU_SLICE_API_RESP);
+  DU_SLICE_API_RESP(m).apiID = DURespToRic.apiID;
+  DU_SLICE_API_RESP(m).apiSize = DURespToRic.apiSize;
+  memcpy(DU_SLICE_API_RESP(m).apiBuff, DURespToRic.apiBuff, DURespToRic.apiSize);
+  itti_send_msg_to_task(TASK_RIC_AGENT_DU,ENB_MODULE_ID_TO_INSTANCE(mod_id),m);
+#if 0
+  bytesSent = sendto(g_duSocket, (void *)&DURespToRic, sizeof(DURespToRic),0,
+             (struct sockaddr *)&g_RicAddr, g_addr_size);
+
+  if (bytesSent > 0)
+  {
+    LOG_I(MAC,"Resp (%d Bytes) sent to RIC !\n", bytesSent);
+  }
+  else
+  {
+    LOG_E(MAC,"Error in UDP Send :(\n");
+    errnum = errno;
+    fprintf(stderr, "Value of errno: %d\n", errno);
+    perror("Error printed by perror");
+    fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
+  }
+#endif
+
+  return;
+}
+#endif
 
 void flexran_agent_slice_update(mid_t mod_id) {
   struct lfds700_misc_prng_state ls;

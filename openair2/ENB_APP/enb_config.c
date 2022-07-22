@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: 2020-present Open Networking Foundation <info@opennetworking.org>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -57,6 +63,9 @@
 #include "enb_paramdef.h"
 #include "proto_agent.h"
 #include "executables/thread-common.h"
+#ifdef ENABLE_RIC_AGENT
+#include "ric_agent.h"
+#endif
 
 extern uint32_t to_earfcn_DL(int eutra_bandP, uint32_t dl_CarrierFreq, uint32_t bw);
 extern uint32_t to_earfcn_UL(int eutra_bandP, uint32_t ul_CarrierFreq, uint32_t bw);
@@ -339,7 +348,7 @@ int RCconfig_RRC(uint32_t i, eNB_RRC_INST *rrc, int macrlc_has_f1) {
       enb_id = *(ENBParamList.paramarray[i][ENB_ENB_ID_IDX].uptr);
     }
 
-    LOG_I(RRC,"Instance %d: Southbound Transport %s\n",i,*(ENBParamList.paramarray[i][ENB_TRANSPORT_S_PREFERENCE_IDX].strptr));
+    LOG_I(RRC,"Instance %d: Southbound Transport %s enb_id:%d\n",i,*(ENBParamList.paramarray[i][ENB_TRANSPORT_S_PREFERENCE_IDX].strptr), enb_id);
 
     if (strcmp(*(ENBParamList.paramarray[i][ENB_TRANSPORT_S_PREFERENCE_IDX].strptr), "f1") == 0) {
       paramdef_t SCTPParams[]  = SCTPPARAMS_DESC;
@@ -369,7 +378,9 @@ int RCconfig_RRC(uint32_t i, eNB_RRC_INST *rrc, int macrlc_has_f1) {
         LOG_I(RRC,"Setting node_type to ngran_eNB\n");
       } else {
         rrc->node_type = ngran_eNB_DU;
-        LOG_I(RRC,"Setting node_type to ngran_eNB_DU\n");
+        rrc->node_name = strdup("eNB-Eurecom-DU");
+        rrc->eth_params_s.my_addr = RC.mac[0]->eth_params_n.my_addr; 
+        LOG_I(RRC,"Setting node_type to ngran_eNB_DU gNB_CU_name[%d] %s my_addr:%s\n",k, rrc->node_name, rrc->eth_params_s.my_addr);
       }
     }
 
@@ -3134,4 +3145,8 @@ void read_config_and_init(void) {
   }
 
   RCconfig_flexran();
+
+#ifdef ENABLE_RIC_AGENT
+  RCconfig_ric_agent();
+#endif
 }

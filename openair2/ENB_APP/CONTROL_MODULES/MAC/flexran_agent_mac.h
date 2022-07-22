@@ -45,6 +45,7 @@ typedef struct flexran_agent_so_handle_s {
   void *dl_handle; // handle of associated objects
   SLIST_ENTRY (flexran_agent_so_handle_s) entries;
 } flexran_agent_so_handle_t;
+#include "openair2/LAYER2/MAC/mac.h"
 
 /* Initialization function for the agent structures etc */
 void flexran_agent_init_mac_agent(mid_t mod_id);
@@ -143,5 +144,9 @@ void flexran_agent_mac_inform_delegation(mid_t mod_id,
 void flexran_agent_mac_fill_loaded_mac_objects(
     mid_t mod_id,
     Protocol__FlexEnbConfigReply *reply);
+#ifdef ENABLE_RAN_SLICING
+void handle_slicing_api_req(apiMsg *p_slicingApi);
+void check_slicing_update(mid_t mod_id);
+#endif
 
 #endif

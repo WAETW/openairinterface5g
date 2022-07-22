@@ -12,9 +12,19 @@ targets/bin/
 
 # vscode
 .vscode
+<<<<<<< HEAD
 
 # Tags for vim/global
 GPATH
 GRTAGS
 GTAGS
 tags
+=======
+.idea
+
+# Jenkins report files
+*report*.xml
+*coverage*.xml
+*-output.out
+
+>>>>>>> develop-onf

@@ -219,7 +219,7 @@ compilations() {
     fi
     fi
     ret=$?
-  } > $dlog/$2.$REL.txt 2>&1
+  } |& tee $dlog/$2.$REL.txt 2>&1
   set -e
   if [[ $ret -ne 0 ]]; then
      check_warnings "$dlog/$2.$REL.txt"
@@ -273,7 +273,7 @@ install_protobuf_from_source(){
     make -j`nproc`
     $SUDO make install
     $SUDO ldconfig
-    ) >& $protobuf_install_log
+    ) |& tee $protobuf_install_log
 }
 
 install_protobuf_c_from_source(){
@@ -295,7 +295,7 @@ install_protobuf_c_from_source(){
     make -j`nproc`
     $SUDO make install
     $SUDO ldconfig
-    ) >& $protobuf_c_install_log
+    ) |& tee $protobuf_c_install_log
 }
 
 install_usrp_uhd_driver_from_source(){
@@ -318,7 +318,7 @@ install_usrp_uhd_driver_from_source(){
     $SUDO ldconfig -v
     popd
     rm -rf /tmp/uhd
-    ) >& $uhd_install_log
+    ) |& tee $protobuf_c_install_log
 }
 
 check_install_usrp_uhd_driver(){
@@ -831,7 +831,7 @@ install_asn1c_from_source(){
     $SUDO make install
     cd -
     $SUDO ldconfig
-    ) > $asn1_install_log 2>&1
+    ) |& tee $asn1_install_log 2>&1
 }
 
 #################################################

@@ -92,7 +92,7 @@ const uint8_t pusch_repetition_Table8_2_36213[3][4]= {
 };
 
 extern mui_t rrc_eNB_mui;
-
+int32_t ulsch_err;
 //-----------------------------------------------------------------------------
 /*
 * When data are received on PHY and transmitted to MAC
@@ -157,6 +157,14 @@ rx_sdu(const module_id_t enb_mod_idP,
     AssertFatal(UE_scheduling_control->round_UL[CC_idP][harq_pid] < 8, "round >= 8\n");
 
     if (sduP != NULL) {
+     
+      if ( (UE_scheduling_control->ul_failure_timer > 0) || (UE_scheduling_control->ul_out_of_sync > 0) || (UE_scheduling_control->ul_consecutive_errors))//(UE_scheduling_control->ul_inactivity_timer > 0) )
+      {
+          LOG_I(MAC, "====== RNTI:%x Resetting UL-F-Timer[%d] & UL-out-of-syn[%d] cons-err[%d] Inactive-Timer[%d] ======= \n", 
+                      current_rnti, UE_scheduling_control->ul_failure_timer, UE_scheduling_control->ul_out_of_sync, 
+                      UE_scheduling_control->ul_consecutive_errors, UE_scheduling_control->ul_inactivity_timer);
+      }
+
       UE_scheduling_control->ul_inactivity_timer = 0;
       UE_scheduling_control->ul_failure_timer = 0;
       UE_scheduling_control->ul_scheduled &= (~(1 << harq_pid));
@@ -192,8 +200,9 @@ rx_sdu(const module_id_t enb_mod_idP,
             ul_cqi,
             UE_id,
             current_rnti,
-	    sdu_lenP);
+	          sdu_lenP);
 
+      ulsch_err++;
       if (ul_cqi > 200) { // too high energy pattern
         UE_scheduling_control->pusch_snr[CC_idP] = ul_cqi;
         LOG_W(MAC, "[MAC] Too high energy pattern\n");
@@ -204,6 +213,7 @@ rx_sdu(const module_id_t enb_mod_idP,
         UE_scheduling_control->round_UL[CC_idP][harq_pid] = 0;
 
         if (UE_scheduling_control->ul_consecutive_errors++ == 10) {
+          LOG_E(MAC, " ++++++++  RNTI:%x Due to Consecutive Errors Setting UL-F-Timer to 1 +++++++++ \n", current_rnti);
           UE_scheduling_control->ul_failure_timer = 1;
         }
 
@@ -1421,16 +1431,18 @@ schedule_ulsch_rnti(module_id_t   module_idP,
       UE_template_ptr->pusch_tpc_tx_frame = frameP;
       UE_template_ptr->pusch_tpc_tx_subframe = subframeP;
 
-      if (snr > target_snr + 4) {
+      if (snr > target_snr + 5) {
         tpc = 0; // -1
         tpc_accumulated--;
-      } else if (snr < target_snr - 4) {
+      } else if (snr < target_snr - 5) {
         tpc = 2; // +1
         tpc_accumulated++;
       }
     }
-    if (tpc != 1) {
-      LOG_D(MAC,
+    
+    if ( (tpc != 1) && (snr != 63))
+    {
+      LOG_E(MAC,
             "[eNB %d] ULSCH scheduler: frame %d, subframe %d, harq_pid %d, "
             "tpc %d, accumulated %d, snr/target snr %d/%d\n",
             module_idP,

@@ -1041,14 +1041,17 @@ void *search_so(mid_t mod_id, char *name) {
   return NULL;
 }
 
-void update_or_remove_dl(mid_t mod_id, Protocol__FlexSlice *s) {
-  if (s->params_case == PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET
-      && !s->label && !s->scheduler) {
+int update_or_remove_dl(mid_t mod_id, Protocol__FlexSlice *s) {
+  if (s->params_case == PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET && !s->label && !s->scheduler) 
+  {
     LOG_I(FLEXRAN_AGENT, "remove DL slice ID %d\n", s->id);
-    const int rc = flexran_remove_dl_slice(mod_id, s);
+    int rc = flexran_remove_dl_slice(mod_id, s);
     if (!rc)
+    {
       LOG_W(FLEXRAN_AGENT, "error while removing slice ID %d\n", s->id);
-  } else {
+    } 
+    else 
+    {
     void *lib = search_so(mod_id, s->scheduler);
     LOG_I(FLEXRAN_AGENT,
           "updating DL slice ID %d (library handle %p)\n",
@@ -1059,17 +1062,23 @@ void update_or_remove_dl(mid_t mod_id, Protocol__FlexSlice *s) {
       LOG_W(FLEXRAN_AGENT,
             "error while update slice ID %d: flexran_create_dl_slice() -> %d\n",
             s->id, rc);
+    return rc;
   }
+  return 0;
+  }
+  return 0;
 }
 
-void update_or_remove_ul(mid_t mod_id, Protocol__FlexSlice *s) {
+int update_or_remove_ul(mid_t mod_id, Protocol__FlexSlice *s) 
+{
   if (s->params_case == PROTOCOL__FLEX_SLICE__PARAMS__NOT_SET
-      && !s->label && !s->scheduler) {
-    LOG_I(FLEXRAN_AGENT, "remove UL slice ID %d\n", s->id);
-    const int rc = flexran_remove_ul_slice(mod_id, s);
+      && !s->label && !s->scheduler) 
+  {
+    LOG_I(FLEXRAN_AGENT, "[%s]remove UL slice ID %d\n", __func__, s->id);
+    int rc = flexran_remove_ul_slice(mod_id, s);
     if (!rc)
       LOG_W(FLEXRAN_AGENT, "error while removing slice ID %d\n", s->id);
-  } else {
+    }else {
     void *lib = search_so(mod_id, s->scheduler);
     LOG_I(FLEXRAN_AGENT,
           "updating UL slice ID %d (library handle %p)\n",
@@ -1080,16 +1089,20 @@ void update_or_remove_ul(mid_t mod_id, Protocol__FlexSlice *s) {
       LOG_W(FLEXRAN_AGENT,
             "error while updating slice ID %d: flexran_create_ul_slice() -> %d)\n",
             s->id, rc);
+    return rc;
   }
+  return 0;
 }
 
-void apply_update_dl_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *dl) {
+int apply_update_dl_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *dl) 
+{
   if (!dl)
-    return;
+    return 0;
 
   Protocol__FlexSliceAlgorithm dl_algo = flexran_get_dl_slice_algo(mod_id);
-  if (dl->has_algorithm && dl_algo != dl->algorithm) {
-    LOG_I(FLEXRAN_AGENT, "loading new DL slice algorithm %d\n", dl->algorithm);
+  if (dl->has_algorithm && dl_algo != dl->algorithm) 
+  {
+    LOG_I(FLEXRAN_AGENT, "[%s]loading new DL slice algorithm %d\n", __func__,dl->algorithm);
     dl_algo = dl->algorithm;
     flexran_set_dl_slice_algo(mod_id, dl_algo);
   }
@@ -1097,31 +1110,48 @@ void apply_update_dl_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *d
   /* first update existing slices, then create new. Thus, we go through the
    * list twice. First round, if a slice exists, handle and mark as such. Then,
    * apply all others in the second round */
-  if (dl->n_slices > 0) {
-    if (dl_algo == PROTOCOL__FLEX_SLICE_ALGORITHM__None) {
+  if (dl->n_slices > 0) 
+  {
+    LOG_D(FLEXRAN_AGENT, "[%s]n_slices %lu\n", __func__,dl->n_slices);
+    if (dl_algo == PROTOCOL__FLEX_SLICE_ALGORITHM__None) 
+    {
       LOG_E(FLEXRAN_AGENT, "cannot update slices: no algorithm loaded\n");
-      return;
+      return -1;
     }
     int handled_dl[dl->n_slices];
-    for (int i = 0; i < dl->n_slices; ++i) {
-      if (flexran_find_dl_slice(mod_id, dl->slices[i]->id) < 0) {
+    for (int i = 0; i < dl->n_slices; ++i) 
+    {
+      if (flexran_find_dl_slice(mod_id, dl->slices[i]->id) < 0) 
+      {
         handled_dl[i] = 0;
         continue;
       }
-      update_or_remove_dl(mod_id, dl->slices[i]);
+      LOG_I(FLEXRAN_AGENT, "[%s,%u]update existing DL slice\n", __func__,__LINE__);
+
+      if (update_or_remove_dl(mod_id, dl->slices[i]) == -1)
+        return -1;
+
       handled_dl[i] = 1;
     }
-    for (int i = 0; i < dl->n_slices; ++i) {
+    for (int i = 0; i < dl->n_slices; ++i) 
+    {
       if (handled_dl[i])
+      {  
         continue;
-      update_or_remove_dl(mod_id, dl->slices[i]);
+      }
+      LOG_I(FLEXRAN_AGENT, "[%s,%u]update new DL slice\n", __func__,__LINE__);
+      
+      if (update_or_remove_dl(mod_id, dl->slices[i]) == -1)
+        return -1;
     }
   }
 
-  if (dl->scheduler) {
-    if (dl_algo != PROTOCOL__FLEX_SLICE_ALGORITHM__None) {
+  if (dl->scheduler) 
+  {
+    if (dl_algo != PROTOCOL__FLEX_SLICE_ALGORITHM__None) 
+    {
       LOG_E(FLEXRAN_AGENT, "cannot update scheduling algorithm: slice algorithm loaded\n");
-      return;
+      return 0;
     }
     void *lib = search_so(mod_id, dl->scheduler);
     LOG_I(FLEXRAN_AGENT,
@@ -1134,46 +1164,67 @@ void apply_update_dl_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *d
             "error while updating scheduling algorithm: "
             "flexran_update_dl_sched_algo() -> %d)\n",
             rc);
-      return;
+      return -1;
     }
   }
+  return 0;
 }
 
-void apply_update_ul_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *ul) {
+int apply_update_ul_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *ul) 
+{
   if (!ul)
-    return;
+    return 0;
 
   Protocol__FlexSliceAlgorithm ul_algo = flexran_get_ul_slice_algo(mod_id);
-  if (ul->has_algorithm && ul_algo != ul->algorithm) {
-    LOG_I(FLEXRAN_AGENT, "loading new UL slice algorithm %d\n", ul->algorithm);
+  if (ul->has_algorithm && ul_algo != ul->algorithm) 
+  {
+    LOG_I(FLEXRAN_AGENT, "[%s]loading new UL slice algorithm %d\n", __func__, ul->algorithm);
     ul_algo = ul->algorithm;
     flexran_set_ul_slice_algo(mod_id, ul_algo);
   }
-  if (ul->n_slices > 0) {
-    if (ul_algo == PROTOCOL__FLEX_SLICE_ALGORITHM__None) {
+
+  if (ul->n_slices > 0) 
+  {
+    if (ul_algo == PROTOCOL__FLEX_SLICE_ALGORITHM__None) 
+    {
       LOG_E(FLEXRAN_AGENT, "cannot update slices: no algorithm loaded\n");
-      return;
+      return -1;
     }
+
     int handled_ul[ul->n_slices];
-    for (int i = 0; i < ul->n_slices; ++i) {
-      if (flexran_find_ul_slice(mod_id, ul->slices[i]->id) < 0) {
+    for (int i = 0; i < ul->n_slices; ++i) 
+    {
+      if (flexran_find_ul_slice(mod_id, ul->slices[i]->id) < 0) 
+      {
         handled_ul[i] = 0;
         continue;
       }
-      update_or_remove_ul(mod_id, ul->slices[i]);
+      LOG_I(FLEXRAN_AGENT, "[%s,%u]update existing UL slice\n", __func__,__LINE__);
+
+      if (update_or_remove_ul(mod_id, ul->slices[i]) == -1)
+        return -1;
+
       handled_ul[i] = 1;
     }
-    for (int i = 0; i < ul->n_slices; ++i) {
+
+    for (int i = 0; i < ul->n_slices; ++i) 
+    {
       if (handled_ul[i])
         continue;
-      update_or_remove_ul(mod_id, ul->slices[i]);
+
+      LOG_I(FLEXRAN_AGENT, "[%s,%u]update new UL slice\n", __func__,__LINE__);
+
+      if (update_or_remove_ul(mod_id, ul->slices[i]) == -1)
+        return -1;
     }
   }
 
-  if (ul->scheduler) {
-    if (ul_algo != PROTOCOL__FLEX_SLICE_ALGORITHM__None) {
+  if (ul->scheduler) 
+  {
+    if (ul_algo != PROTOCOL__FLEX_SLICE_ALGORITHM__None) 
+    {
       LOG_E(FLEXRAN_AGENT, "cannot update scheduling algorithm: slice algorithm loaded\n");
-      return;
+      return 0;
     }
     void *lib = search_so(mod_id, ul->scheduler);
     LOG_I(FLEXRAN_AGENT,
@@ -1186,9 +1237,10 @@ void apply_update_ul_slice_config(mid_t mod_id, Protocol__FlexSliceDlUlConfig *u
             "error while updating scheduling algorithm: "
             "flexran_update_dl_sched_algo() -> %d)\n",
             rc);
-      return;
+      return -1;
     }
   }
+  return 0;
 }
 
 int apply_ue_slice_assoc_update(mid_t mod_id, Protocol__FlexUeConfig *ue_config)

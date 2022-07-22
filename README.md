@@ -1,4 +1,40 @@
-# OpenAirInterface License #
+# OAI CU & DU #
+
+ONF's OAI CU & DU are O-RAN compliant disaggregated baseband units based on on [OpenAirInterface](http://www.openairinterface.org). The CU contains both CU-C & CU-U functionality and supports PDCP,GTPU,RRC & S1AP protocols along with S1, F1 & E2 interfaces. The DU has High-PHY(FAPI), MAC, RLC & RRC (for handing RRC Config messages from CU) protocols along with F1 interface support. Both CU & DU implements O-RAN's E2AP interface with support for the below Service Models:
+    - Key Performance Metrics (E2SM_KPM)
+    - RAN Slicing (E2SM_RSM)
+This component is intended for use with OAI based RU/DU hardware or SDRAN-in-a-Box (RiaB). 
+
+## RIC Agent ##
+
+The RIC Agent is an ONF addition to OAI that adds support for interfacing the OAI CU & DU with a O-RAN Real-time Intelligent Controller (RIC) over the E2 interface. To build OAI with this support, enable the *--build-ric-agent* build option:
+
+```shell
+$ cd openairinterface5g
+$ source oaienv
+$ cd cmake_targets
+$ ./build_oai -c -I --eNB --UE -w USRP -g --build-ric-agent
+```
+
+The top-level *Makefile* builds docker images that include the RIC Agent:
+
+```shell
+$ cd openairinterface5g
+$ make images
+```
+## RAN Slicing ##
+
+ONF has implemented RAN Slicing service model to introduce Downlink (DL) & Uplink (UL) RAN Slicing functionality on the CU & DU and also to communicate with RSM xApp at the RIC. To build OAI with RAN slicing functionality, enable the *--build-ran-slicing* build option along with *--build-ric-agent*
+
+```shell
+$ cd openairinterface5g
+$ source oaienv
+$ cd cmake_targets
+$ ./build_oai -c -I --eNB --UE -w USRP -g --build-ric-agent --build-ran-slicing
+```
+
+## OpenAirInterface ##
+### OpenAirInterface License ###
 
 OpenAirInterface is under OpenAirInterface Software Alliance license.
 
@@ -11,13 +47,13 @@ The license information is distributed under [LICENSE](LICENSE) file in the same
 
 Please see [NOTICE](NOTICE.md) file for third party software that is included in the sources.
 
-# Where to Start #
+### Where to Start ###
 
  *  [The implemented features](./doc/FEATURE_SET.md)
  *  [How to build](./doc/BUILD.md)
  *  [How to run the modems](./doc/RUNMODEM.md)
 
-# RAN repository structure #
+### OpenAirInterface repository structure ###
 
 The OpenAirInterface (OAI) software is composed of the following parts: 
 
@@ -53,6 +89,7 @@ openairinterface5g
 │   ├── NR_PHY_INTERFACE
 │   ├── NR_UE_PHY_INTERFACE
 │   ├── PHY_INTERFACE
+│   ├── RIC_AGENT     : E2 client to interface with O-RAN compliant RIC
 │   ├── RRC
 │   ├── UTIL
 │   └── X2AP

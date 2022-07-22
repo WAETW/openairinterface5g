@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: 2020-present Open Networking Foundation <info@opennetworking.org>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -237,6 +243,9 @@ typedef enum {
   ASN,
   NFAPI_VNF,
   NFAPI_PNF,
+#ifdef ENABLE_RIC_AGENT
+  RIC_AGENT,
+#endif
   MAX_LOG_PREDEF_COMPONENTS,
 }
 comp_name_t;

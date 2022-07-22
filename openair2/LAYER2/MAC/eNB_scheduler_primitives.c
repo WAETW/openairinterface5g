@@ -59,6 +59,11 @@ extern uint16_t frame_cnt;
 #include "common/ran_context.h"
 #include "SCHED/sched_common.h"
 
+#ifdef ENABLE_RAN_SLICING
+#include "openair2/LAYER2/MAC/slicing/slicing.h"
+#endif
+
+
 extern RAN_CONTEXT_t RC;
 
 
@@ -2120,10 +2125,16 @@ get_aggregation(uint8_t bw_index,
 /*
  * Dump the UE_list into LOG_T(MAC)
  */
-void
-dump_ue_list(UE_list_t *listP) {
+unsigned int
+dump_ue_list(UE_list_t *listP) 
+{
+  unsigned int cnt = 0;
   for (int j = listP->head; j >= 0; j = listP->next[j])
-    LOG_T(MAC, "DL list node %d => %d\n", j, listP->next[j]);
+  {
+    LOG_D(MAC, "DL list node %d => %d\n", j, listP->next[j]);
+    cnt++;
+  }
+  return cnt;
 }
 
 //------------------------------------------------------------------------------
@@ -2238,7 +2249,13 @@ add_new_ue(module_id_t mod_idP,
   dump_ue_list(&UE_info->list);
   return -1;
 }
-
+#if 0
+#ifdef ENABLE_RAN_SLICING
+extern int g_duSocket;
+extern struct sockaddr_in g_RicAddr;
+extern socklen_t g_addr_size;
+#endif
+#endif
 //------------------------------------------------------------------------------
 /*
  * Remove MAC context of UE
@@ -2252,6 +2269,7 @@ rrc_mac_remove_ue(module_id_t mod_idP,
   int UE_id = find_UE_id(mod_idP, rntiP);
   eNB_UE_STATS *ue_stats = NULL;
   int pCC_id = -1;
+  pp_impl_param_t* dl = &RC.mac[mod_idP]->pre_processor_dl;
 
   if (UE_id == -1) {
     LOG_W(MAC,"rrc_mac_remove_ue: UE %x not found\n",
@@ -2267,8 +2285,66 @@ rrc_mac_remove_ue(module_id_t mod_idP,
   UE_info->active[UE_id] = FALSE;
   UE_info->num_UEs--;
 
+#if 0
+#ifdef ENABLE_RAN_SLICING
+  /* Send UE Detach Notification to RIC */
+  apiMsg  apiToRic;
+  ueStatusInd *ueDetachInd;
+  int bytesSent = 0;
+  int errnum;
+  slice_info_t *si = dl->slices;
+  uint8_t assoc_slice = si->UE_assoc_slice[UE_id]; 
+
+  apiToRic.apiID = UE_DETACH_IND;
+  apiToRic.apiSize = sizeof(ueStatusInd);
+
+  ueDetachInd = (ueStatusInd *)apiToRic.apiBuff;
+  ueDetachInd->rnti = rntiP;
+  ueDetachInd->ueId = UE_id;
+
+  bytesSent = sendto(g_duSocket, (void *)&apiToRic, sizeof(apiToRic),0,
+             (struct sockaddr *)&g_RicAddr, g_addr_size);
+
+  if (bytesSent > 0)
+  {
+    LOG_I(MAC,"UE Detach Indication (%d Bytes) sent to RIC !\n", bytesSent);
+  }
+  else
+  {
+    LOG_E(MAC,"Error in UDP Send :(\n");
+    errnum = errno;
+    fprintf(stderr, "Value of errno: %d\n", errno);
+    perror("Error printed by perror");
+    fprintf(stderr, "Error opening file: %s\n", strerror( errnum ));
+  }
+
+  /* Check if this is the last UE associated to respective dedicated slice */
+  if ( (dump_ue_list(&si->s[assoc_slice]->UEs) == 1) && (assoc_slice > 0) )
+  {
+    /* Add the time_schd value of this dedicated slice back to default slice */
+    ((static_slice_param_t *)si->s[0]->algo_data)->timeSchd += ((static_slice_param_t *)si->s[assoc_slice]->algo_data)->timeSchd;
+    LOG_I(MAC,"Last UEID:%d removed from slice:%d, def slice timeschd:%d\n",
+          UE_id, assoc_slice, ((static_slice_param_t *)si->s[0]->algo_data)->timeSchd);
+  } 
+
+#endif
+#endif
+
+#ifdef ENABLE_RAN_SLICING
+  slice_info_t *si = dl->slices;
+  uint8_t assoc_slice = si->UE_assoc_slice[UE_id];
+
+  /* Check if this is the last UE associated to respective dedicated slice */
+  if ( (dump_ue_list(&si->s[assoc_slice]->UEs) == 1) && (assoc_slice > 0) )
+  {
+    /* Add the time_schd value of this dedicated slice back to default slice */
+    ((static_slice_param_t *)si->s[0]->algo_data)->timeSchd += ((static_slice_param_t *)si->s[assoc_slice]->algo_data)->timeSchd;
+    LOG_I(MAC,"Last UEID:%d removed from slice:%d, def slice timeschd:%d\n",
+          UE_id, assoc_slice, ((static_slice_param_t *)si->s[0]->algo_data)->timeSchd);
+  }
+#endif
+
   remove_ue_list(&UE_info->list, UE_id);
-  pp_impl_param_t* dl = &RC.mac[mod_idP]->pre_processor_dl;
   if (dl->slices) // inform slice implementation about new UE
     dl->remove_UE(dl->slices, UE_id);
   pp_impl_param_t* ul = &RC.mac[mod_idP]->pre_processor_ul;
@@ -4135,16 +4211,30 @@ extract_harq(module_id_t mod_idP,
               sched_ctl->harq_rtt_timer[CC_idP][harq_pid] = 0;
             }
 
-            if (sched_ctl->round[CC_idP][harq_pid] == 8) {
-              for (uint8_t ra_i = 0; ra_i < NB_RA_PROC_MAX; ra_i++) {
-                if((ra[ra_i].rnti == rnti) && (ra[ra_i].state == WAITMSG4ACK)) {
-                  // Msg NACK num to MAC ,remove UE
-                  // add UE info to freeList
-                  LOG_I(RRC, "put UE %x into freeList\n",
-                        rnti);
-                  put_UE_in_freelist(mod_idP,
-                                     rnti,
-                                     1);
+            if (sched_ctl->round[CC_idP][harq_pid] == 8) 
+            {
+              for (uint8_t ra_i = 0; ra_i < NB_RA_PROC_MAX; ra_i++) 
+              {
+                if((ra[ra_i].rnti == rnti) && (ra[ra_i].state == WAITMSG4ACK)) 
+                {
+                    /* This will delete the F1AP UE Context from CU & DU */
+                    MessageDef *m = itti_alloc_new_message(TASK_MAC_ENB, F1AP_UE_CONTEXT_RELEASE_REQ);
+                    F1AP_UE_CONTEXT_RELEASE_REQ(m).rnti = rnti;
+                    F1AP_UE_CONTEXT_RELEASE_REQ(m).cause = F1AP_CAUSE_RADIO_NETWORK;
+                    F1AP_UE_CONTEXT_RELEASE_REQ(m).cause_value = 1; // 1 = F1AP_CauseRadioNetwork_rl_failure
+                    F1AP_UE_CONTEXT_RELEASE_REQ(m).rrc_container = NULL;
+                    F1AP_UE_CONTEXT_RELEASE_REQ(m).rrc_container_length = 0;
+                    itti_send_msg_to_task(TASK_DU_F1, mod_idP, m);
+                    LOG_I(MAC, "[MSG4-MAX-RETX] ****** UE %d rnti %x: F1AP_UE_CONTEXT_RELEASE_REQ ==> RLF ********** \n", 
+                                UE_id, rnti);
+
+                    // Msg NACK num to MAC ,remove UE
+                    // add UE info to freeList
+                    LOG_I(MAC, " +++++ [MSG4-MAX-RETX] put UE %x into freeList +++++++\n", rnti);
+
+                    put_UE_in_freelist(mod_idP,
+                                       rnti,
+                                       1);
                 }
               }
             }

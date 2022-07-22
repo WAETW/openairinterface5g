@@ -64,6 +64,10 @@ UE_AUTOTEST_TRACE="False"
 UE_DEBUG_TRACE="False"
 UE_TIMING_TRACE="False"
 USRP_REC_PLAY="False"
+BUILD_RIC_AGENT="False"
+BUILD_RAN_SLICING="False"
+RIC_GENERATED_E2AP_BINDING_DIR=""
+RIC_GENERATED_E2SM_BINDING_DIR=""
 BUILD_ECLIPSE=0
 NR="False"
 ITTI_SIM="False"
@@ -408,10 +412,18 @@ function main() {
             USRP_REC_PLAY="True"
             echo_info "Enabling USRP record playback mode"
             shift 1;;
+	--build-ric-agent)
+	    BUILD_RIC_AGENT="True"
+	    echo_info "Enabling RIC agent"
+	    shift 1;;
         -k | --skip-shared-libraries)
             SKIP_SHARED_LIB_FLAG="True"
             echo_info "Skipping build of shared libraries, rfsimulator and transport protocol libraries"
             shift;;
+    --build-ran-slicing)
+        BUILD_RAN_SLICING="True"
+        echo_info "Enabling RAN Slicing"
+        shift;;
     --ninja)
         CMAKE_CMD="$CMAKE_CMD -GNinja"
 	MAKE_CMD=ninja
@@ -602,6 +614,8 @@ function main() {
     echo "set ( UE_DEBUG_TRACE $UE_DEBUG_TRACE )"                         >> $cmake_file
     echo "set ( UE_TIMING_TRACE $UE_TIMING_TRACE )"                       >> $cmake_file
     echo "set ( USRP_REC_PLAY $USRP_REC_PLAY )"                           >> $cmake_file
+    echo "set ( ENABLE_RIC_AGENT $BUILD_RIC_AGENT )"                      >> $cmake_file
+    echo "set ( ENABLE_RAN_SLICING $BUILD_RAN_SLICING )"                  >> $cmake_file
     echo "set ( SKIP_SHARED_LIB_FLAG $SKIP_SHARED_LIB_FLAG )"             >> $cmake_file
     echo "set ( ITTI_SIM $ITTI_SIM )"                                     >> $cmake_file
     echo 'include(${CMAKE_CURRENT_SOURCE_DIR}/../CMakeLists.txt)'         >> $cmake_file
@@ -656,15 +670,15 @@ function main() {
       #compile  nasmesh and rb_tool only if NOT running in a container
       if [ $IS_CONTAINER -eq 0 ]
       then
-        compilations \
-          $build_dir nasmesh \
-          CMakeFiles/nasmesh/nasmesh.ko $dbin/nasmesh.ko
+        # compilations \
+        #   $build_dir nasmesh \
+        #   CMakeFiles/nasmesh/nasmesh.ko $dbin/nasmesh.ko
 
-        compilations \
-          $build_dir rb_tool \
-          rb_tool $dbin/rb_tool
-
-        cp $OPENAIR_DIR/cmake_targets/tools/init_nas_nos1 $dbin
+        # compilations \
+        #   $build_dir rb_tool \
+        #   rb_tool $dbin/rb_tool
+        echo "disable rb_tool"
+        # cp $OPENAIR_DIR/cmake_targets/tools/init_nas_nos1 $dbin
       fi #IS_CONTAINER
     fi
 

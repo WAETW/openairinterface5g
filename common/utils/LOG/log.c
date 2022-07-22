@@ -1,4 +1,10 @@
 /*
+ * SPDX-FileCopyrightText: 2020-present Open Networking Foundation <info@opennetworking.org>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Licensed to the OpenAirInterface (OAI) Software Alliance under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -446,6 +452,9 @@ int logInit (void)
   register_log_component("NR_MAC","log",NR_MAC);
   register_log_component("NR_PHY","log",NR_PHY);
   register_log_component("NGAP","",NGAP);
+#ifdef ENABLE_RIC_AGENT
+  register_log_component("RIC_AGENT","log",RIC_AGENT);
+#endif
 
   for (int i=0 ; log_level_names[i].name != NULL ; i++)
     g_log->level2string[i]           = toupper(log_level_names[i].name[0]); // uppercased first letter of level name
